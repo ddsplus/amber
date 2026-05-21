@@ -1,0 +1,59 @@
+
+  操作手册
+
+  1. 准备环境
+     在项目根目录 E:\desk_file\AMBER2025CIKM-main\AMBER2025CIKM-main，确保依赖安装完成（README 中列出的 torch/tqdm/numpy/scipy/sklearn/geomloss）。
+  2. 检查数据文件
+     以 assist2017 为例，确认存在：
+      - ../../Dataset/assist2017/assist2017_pid_train.csv
+      - ../../Dataset/H/2017.csv
+        并且 Constants.py 中数据集配置正确。
+  3. 首次运行会自动切分 8/2
+     不需要手动切分。首次调用 getLoader() 时会自动生成：
+      - ../../Dataset/assist2017/assist2017_pid_user8_2_train.csv
+      - ../../Dataset/assist2017/assist2017_pid_user8_2_test.csv
+        后续若这两个文件已存在，会直接复用。
+  4. 训练 teacher（TKT）
+     在 KnowledgeTracing/run 目录执行：
+
+     python run_tkt.py
+
+     训练日志会在控制台和 log/*.log 中看到每轮测试集指标。
+     最优模型保存到：
+      - ../model/save{H}modelS_weights_teacher.pth
+        例如 H=2017 时为 save2017modelS_weights_teacher.pth。
+
+  5. 训练 AMBER（MNS）
+     同目录执行：
+
+     python run_mns.py
+
+     每轮都会打印测试集 AUC/ACC，并在最后自动 KTtest() 再测一次。
+     最优 student 保存到：
+      - ../model/save{H}modelS_weights.pth
+
+  6. 日志与结果位置
+      - TKT 日志：KnowledgeTracing/run/log/*_result.log
+      - MNS 日志：KnowledgeTracing/run/log/*_result2s.log
+      - 关键指标：每个 epoch 的 Test AUC / Test ACC
+  7. 常见问题排查
+      - 报错“teacher model not found”：
+          - 先运行 run_tkt.py 生成 teacher 权重，再运行 run_mns.py。
+      - 报错“Invalid dataset format ... expected 4 lines per user”：
+          - 说明你的 *_pid_train.csv 不是 4 行一组的用户记录格式，需要先统一成该格式。
+      - CUDA 不可用：
+          - 脚本已兼容 CPU/GPU 自动选择，但训练会变慢。
+
+  ———
+
+  如果你要，我可以下一步再给你做两件事（可选）：
+
+  1. 把切分比例、随机种子做成命令行参数（比如 --split 0.8 --seed 216）。
+  2. 把每轮 Test AUC/ACC 自动追加保存成 csv，方便画曲线和对比实验。
+
+─ Worked for 3m 26s ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+› Improve documentation in @filename
+
+  gpt-5.3-codex medium · E:\desk_file\AMBER2025CIKM-main
