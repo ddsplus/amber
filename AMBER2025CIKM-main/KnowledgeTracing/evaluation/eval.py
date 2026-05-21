@@ -7,6 +7,24 @@ import logging
 
 logger = logging.getLogger('main.eval')
 
+def _qa_to_onehot(batch_ques, batch_ans, q, device):
+    bsz, step = batch_ques.shape
+    x = torch.zeros(bsz, step, 2 * q, device=device, dtype=torch.float32)
+    valid = batch_ques > 0
+    idx_q = (batch_ques - 1).clamp_min(0)
+    idx_neg = idx_q + q
+
+    pos_mask = valid & (batch_ans > 0)
+    neg_mask = valid & (batch_ans == 0)
+
+    if pos_mask.any():
+        bi, ti = pos_mask.nonzero(as_tuple=True)
+        x[bi, ti, idx_q[bi, ti]] = 1.0
+    if neg_mask.any():
+        bi, ti = neg_mask.nonzero(as_tuple=True)
+        x[bi, ti, idx_neg[bi, ti]] = 1.0
+    return x
+
 
 def performance(ground_truth, prediction):
     fpr, tpr, thresholds = metrics.roc_curve(ground_truth.detach().cpu().numpy(),
@@ -186,8 +204,10 @@ def train_epoch_T(model, trainLoader, optimizer, scheduler, loss_func):
 
 def train_epoch(model, trainLoader, optimizer, scheduler, loss_func):
     
-    for batch in tqdm.tqdm(trainLoader, desc='Training:    ', mininterval=2):
-        batch = batch.cuda(non_blocking=True)
+    for batch_ques, batch_ans in tqdm.tqdm(trainLoader, desc='Training:    ', mininterval=2):
+        batch_ques = batch_ques.cuda(non_blocking=True)
+        batch_ans = batch_ans.cuda(non_blocking=True)
+        batch = _qa_to_onehot(batch_ques, batch_ans, C.NUM_OF_QUESTIONS, batch_ques.device)
         
         logit_c, logit_t, logit_ensemble, _, _ = model(batch)
         
@@ -213,8 +233,10 @@ def test_epoch(model, testLoader, loss_func, device):
     total_loss = 0.0
     total_kd_loss = 0.0
 
-    for batch in tqdm.tqdm(testLoader, desc='Testing:     ', mininterval=2):
-        batch = batch.cuda(non_blocking=True)
+    for batch_ques, batch_ans in tqdm.tqdm(testLoader, desc='Testing:     ', mininterval=2):
+        batch_ques = batch_ques.cuda(non_blocking=True)
+        batch_ans = batch_ans.cuda(non_blocking=True)
+        batch = _qa_to_onehot(batch_ques, batch_ans, C.NUM_OF_QUESTIONS, batch_ques.device)
         logit_c, logit_t, logit_ensemble, _, _ = model(batch)
 
         loss, loss_kd, p, a = loss_func(logit_c, logit_t, logit_ensemble, batch)
