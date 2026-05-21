@@ -10,32 +10,34 @@ def generate_G_from_H(H, variable_weight=False):
     :param variable_weight: whether the weight of hyperedge is variable
     :return: G
     """
-    H = np.array(H)
-    n_edge = H.shape[1] # Number of columns of matrix = number of hyperedge
-    # the weight of the hyperedge
-    W = np.ones(n_edge)
-    # the degree of the node
-    DV = np.sum(H * W, axis=1)
-    # the degree of the hyperedge
-    DE = np.sum(H, axis=0)
+    H_sp = sp.csr_matrix(np.asarray(H, dtype=np.float32))
+    n_edge = H_sp.shape[1]
+
+    # Node/edge degree.
+    DV = np.asarray(H_sp.sum(axis=1)).reshape(-1)
+    DE = np.asarray(H_sp.sum(axis=0)).reshape(-1)
+
     # Guard zero-degree nodes/edges to avoid inf -> NaN propagation.
-    inv_de = np.power(DE, -1.0, where=(DE != 0), out=np.zeros_like(DE, dtype=float))
-    inv_dv2 = np.power(DV, -0.5, where=(DV != 0), out=np.zeros_like(DV, dtype=float))
-    invDE = np.mat(np.diag(inv_de))
-    DV2 = np.mat(np.diag(inv_dv2))
-    W = np.mat(np.diag(W))
-    H = np.mat(H)
-    HT = H.T
+    inv_de = np.zeros_like(DE, dtype=np.float32)
+    nonzero_de = DE != 0
+    inv_de[nonzero_de] = 1.0 / DE[nonzero_de]
+
+    inv_dv2 = np.zeros_like(DV, dtype=np.float32)
+    nonzero_dv = DV != 0
+    inv_dv2[nonzero_dv] = np.power(DV[nonzero_dv], -0.5)
+
+    invDE = sp.diags(inv_de, format='csr')
+    DV2 = sp.diags(inv_dv2, format='csr')
+    W = sp.eye(n_edge, dtype=np.float32, format='csr')
 
     if variable_weight:
-        DV2_H = DV2 * H
-        invDE_HT_DV2 = invDE * HT * DV2
+        DV2_H = DV2 @ H_sp
+        invDE_HT_DV2 = invDE @ H_sp.transpose() @ DV2
         return DV2_H, W, invDE_HT_DV2
-    else:
-        G = DV2 * H * W * invDE * HT * DV2
-        G = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(G))
-        # G = torch.Tensor(G)
-        return G
+
+    G = DV2 @ H_sp @ W @ invDE @ H_sp.transpose() @ DV2
+    G = sparse_mx_to_torch_sparse_tensor(G.tocoo())
+    return G
 
 
 def sparse_mx_to_torch_sparse_tensor(sparse_mx):

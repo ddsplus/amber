@@ -29,8 +29,8 @@ if torch.cuda.is_available():
 
 # Limit CPU thread contention to avoid full-core saturation.
 try:
-    _threads = int(os.environ.get('KT_TORCH_THREADS', '1'))
-    _interop = int(os.environ.get('KT_TORCH_INTEROP_THREADS', '1'))
+    _threads = int(os.environ.get('KT_TORCH_THREADS', '8'))
+    _interop = int(os.environ.get('KT_TORCH_INTEROP_THREADS', '2'))
     torch.set_num_threads(max(1, _threads))
     torch.set_num_interop_threads(max(1, _interop))
 except Exception:
