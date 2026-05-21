@@ -187,6 +187,7 @@ def train_epoch_T(model, trainLoader, optimizer, scheduler, loss_func):
 def train_epoch(model, trainLoader, optimizer, scheduler, loss_func):
     
     for batch in tqdm.tqdm(trainLoader, desc='Training:    ', mininterval=2):
+        batch = batch.cuda(non_blocking=True)
         
         logit_c, logit_t, logit_ensemble, _, _ = model(batch)
         
@@ -196,7 +197,7 @@ def train_epoch(model, trainLoader, optimizer, scheduler, loss_func):
         
         optimizer.zero_grad()
         
-        total_loss.backward(retain_graph=True)
+        total_loss.backward()
         optimizer.step()
         
         scheduler.step()
@@ -213,6 +214,7 @@ def test_epoch(model, testLoader, loss_func, device):
     total_kd_loss = 0.0
 
     for batch in tqdm.tqdm(testLoader, desc='Testing:     ', mininterval=2):
+        batch = batch.cuda(non_blocking=True)
         logit_c, logit_t, logit_ensemble, _, _ = model(batch)
 
         loss, loss_kd, p, a = loss_func(logit_c, logit_t, logit_ensemble, batch)

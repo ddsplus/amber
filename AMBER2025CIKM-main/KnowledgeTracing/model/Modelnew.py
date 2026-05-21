@@ -56,15 +56,11 @@ class SkillGraphModule(nn.Module):
         self.G = G
 
     def forward(self, ques, x):
-        with torch.autograd.set_detect_anomaly(True):
-            ques_h = self.hgnn(ques, self.G)
-
-            x_h = x.matmul(ques_h)
-
-            out_h, _ = self.gru(x_h)
-
-            logit_h = self.fc(out_h)
-            return logit_h, out_h
+        ques_h = self.hgnn(ques, self.G)
+        x_h = x.matmul(ques_h)
+        out_h, _ = self.gru(x_h)
+        logit_h = self.fc(out_h)
+        return logit_h, out_h
 
 
 class TransitionGraphModule(nn.Module):
@@ -78,15 +74,10 @@ class TransitionGraphModule(nn.Module):
         self.adj_in = adj_in
 
     def forward(self, ques, x):
-        with torch.autograd.set_detect_anomaly(True):
-            ques_out = self.dgcn_out(ques, self.adj_out)
-            ques_in = self.dgcn_in(ques, self.adj_in)
-
-            ques_d = torch.cat([ques_in, ques_out], -1)
-
-            x_d = x.matmul(ques_d)
-
-            out_d, _ = self.gru(x_d)
-
-            logit_d = self.fc(out_d)
-            return logit_d, out_d
+        ques_out = self.dgcn_out(ques, self.adj_out)
+        ques_in = self.dgcn_in(ques, self.adj_in)
+        ques_d = torch.cat([ques_in, ques_out], -1)
+        x_d = x.matmul(ques_d)
+        out_d, _ = self.gru(x_d)
+        logit_d = self.fc(out_d)
+        return logit_d, out_d

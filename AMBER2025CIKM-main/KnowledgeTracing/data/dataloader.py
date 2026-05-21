@@ -56,7 +56,13 @@ def getTrainLoader(train_data_path):
     handle = DataReader(train_data_path, C.MAX_STEP)
     trainques, trainans = handle.getTrainData()
     dtrain = OneHot(trainques, trainans)
-    trainLoader = Data.DataLoader(dtrain, batch_size=C.BATCH_SIZE, shuffle=True, drop_last=True)
+    trainLoader = Data.DataLoader(
+        dtrain,
+        batch_size=C.BATCH_SIZE,
+        shuffle=True,
+        drop_last=True,
+        pin_memory=True
+    )
     return trainLoader
 
 
@@ -64,7 +70,13 @@ def getTestLoader(test_data_path):
     handle = DataReader(test_data_path, C.MAX_STEP)
     testques, testans = handle.getTestData()
     dtest = OneHot(testques, testans)
-    testLoader = Data.DataLoader(dtest, batch_size=C.BATCH_SIZE, shuffle=False, drop_last=True)
+    testLoader = Data.DataLoader(
+        dtest,
+        batch_size=C.BATCH_SIZE,
+        shuffle=False,
+        drop_last=True,
+        pin_memory=True
+    )
     return testLoader
 
 
