@@ -3,7 +3,9 @@ datasets = {
     'assist2009' : 'assist2009',
     'assist2012' : 'assist2012',
     'assist2017' : 'assist2017',
-    'assistednet': 'assistednet',
+    'assistednet' : 'assistednet',
+    'statics2011' : 'statics2011',
+    'xes3g5m' : 'xes3g5m',
 }
 
 
@@ -12,20 +14,24 @@ numbers = {
     'assist2009' : 16891,
     'assist2012' : 37125,
     'assist2017' : 3162,
-    'assistednet': 10795,
+    'assistednet' : 10795,
+    'statics2011' : 1224,
+    'xes3g5m' : 7651,
 }
 
 skill = {
     'assist2009' : 101,
     'assist2012' : 188,
     'assist2017' : 102,
-    'assistednet': 1676,
+    'assistednet' : 1676,
+    'statics2011' : 85,
+    'xes3g5m' : 864,
 }
 
 
-DATASET = datasets['assist2017']
-NUM_OF_QUESTIONS = numbers['assist2017']
-H = '2017'
+DATASET = datasets['assist2009']
+NUM_OF_QUESTIONS = numbers['assist2009']
+H = '2009'
 
 MAX_STEP = 50
 max_step = 50
