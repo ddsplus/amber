@@ -42,6 +42,8 @@ def _split_by_user_8_2(source_path, train_out, test_out, seed=216, train_ratio=0
 def _resolve_dataset_paths(dataset):
     base = os.path.join(C.Dpath, dataset)
     original_train = os.path.join(base, f'{dataset}_pid_train.csv')
+    if not os.path.exists(original_train):
+        raise FileNotFoundError(f'Missing training file: {original_train}')
 
     split_train = os.path.join(base, f'{dataset}_pid_user8_2_train.csv')
     split_test = os.path.join(base, f'{dataset}_pid_user8_2_test.csv')
@@ -67,9 +69,6 @@ def getTestLoader(test_data_path):
 
 
 def getLoader(dataset):
-    if dataset not in {'assist2009', 'assist2017', 'assistednet'}:
-        raise ValueError(f'Unsupported dataset: {dataset}')
-
     train_path, test_path = _resolve_dataset_paths(dataset)
     trainLoader = getTrainLoader(train_path)
     testLoader = getTestLoader(test_path)
