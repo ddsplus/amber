@@ -1,8 +1,10 @@
 ﻿import sys
+from pathlib import Path
 import os
 
-project_root = "/root/KT/AMBER"  # replace to your project root
-sys.path.append(project_root)
+project_root = Path(__file__).resolve().parents[2]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 from KnowledgeTracing.DirectedGCN.load_data import get_adj
 from KnowledgeTracing.hgnn_models import hypergraph_utils as hgut
