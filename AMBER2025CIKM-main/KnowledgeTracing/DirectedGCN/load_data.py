@@ -4,11 +4,17 @@ from KnowledgeTracing.Constant import Constants as C
 import tqdm
 import itertools
 import torch
+import os
 
 
 def get_adj():
+    cache_path = '../../Dataset/' + C.DATASET + '/adj_' + C.DATASET + '_q' + str(C.NUM_OF_QUESTIONS) + '.pt'
+    if os.path.exists(cache_path):
+        cached = torch.load(cache_path, map_location='cpu')
+        return cached['adj_out'].coalesce(), cached['adj_in'].coalesce()
+
     q = C.NUM_OF_QUESTIONS
-    resout = np.zeros((2 * q, 2 * q))
+    resout = np.zeros((2 * q, 2 * q), dtype=np.float32)
     path = '../../Dataset/' + C.DATASET + '/' + C.DATASET + '_pid_train.csv'
 
     with open(path, 'r', encoding='UTF-8-sig') as train:
@@ -18,12 +24,12 @@ def get_adj():
             ques = np.array(ques.strip().strip(',').split(',')).astype(int)
             ans = np.array(ans.strip().strip(',').split(',')).astype(int)
             if len > 1:
-                for i in range(len):
-                    if ans[i] == 0:
-                        ques[i] += q
-
-                for j in range(len - 1):
-                    resout[ques[j] - 1][ques[j + 1] - 1] += 1
+                seq = ques.copy()
+                wrong_mask = (ans[:len] == 0)
+                seq[:len][wrong_mask] += q
+                src = seq[:len - 1] - 1
+                dst = seq[1:len] - 1
+                np.add.at(resout, (src, dst), 1.0)
     resin = resout.T
     resout = normalize(resout + sp.eye(resout.shape[0]))
     resin = normalize(resin + sp.eye(resin.shape[0]))
@@ -31,6 +37,8 @@ def get_adj():
     resout = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(resout))
     resin = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(resin))
 
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    torch.save({'adj_out': resout.coalesce(), 'adj_in': resin.coalesce()}, cache_path)
     return resout, resin
 
 

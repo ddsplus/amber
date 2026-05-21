@@ -20,6 +20,7 @@ import numpy as np
 import warnings
 import random
 import pandas as pd
+import time
 
 warnings.filterwarnings('ignore')
 
@@ -69,13 +70,48 @@ trainLoader, testLoader = getLoader(C.DATASET)
 print(f'Effective batch-size is controlled in dataloader for stability; configured BATCH_SIZE={C.BATCH_SIZE}')
 loss_func = eval.lossFunc(C.HIDDEN, C.MAX_STEP, device)
 
+def _sanity_check_question_count():
+    train_path = f'../../Dataset/{C.DATASET}/{C.DATASET}_pid_train.csv'
+    max_qid = 0
+    with open(train_path, 'r', encoding='UTF-8-sig') as f:
+        while True:
+            l1 = f.readline()
+            if not l1:
+                break
+            qline = f.readline().strip().strip(',')
+            _ = f.readline()
+            _ = f.readline()
+            if not qline:
+                continue
+            vals = [int(x) for x in qline.split(',') if x]
+            if vals:
+                max_qid = max(max_qid, max(vals))
+    if max_qid != C.NUM_OF_QUESTIONS:
+        print(f'[WARN] NUM_OF_QUESTIONS mismatch: Constants={C.NUM_OF_QUESTIONS}, data max_qid={max_qid}')
+        print('       This can cause major slowdown or shape issues. Please sync Constants.py with data stats.')
+
+_sanity_check_question_count()
+
 
 def KTtrain():
-    adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
-    G = adj.to(device)
+    t0 = time.time()
+    g_cache = f'../../Dataset/{C.DATASET}/G_{C.H}_q{C.NUM_OF_QUESTIONS}.pt'
+    if os.path.exists(g_cache):
+        G = torch.load(g_cache, map_location='cpu').coalesce().to(device)
+        print(f'Loaded cached G in {time.time() - t0:.2f}s')
+    else:
+        h_mat = pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None)
+        adj = hgut.generate_G_from_H(h_mat)
+        G = adj.coalesce().to(device)
+        os.makedirs(f'../../Dataset/{C.DATASET}', exist_ok=True)
+        torch.save(adj.coalesce().cpu(), g_cache)
+        print(f'Built and cached G in {time.time() - t0:.2f}s')
+
+    t1 = time.time()
     adj_out, adj_in = get_adj()
     adj_in = adj_in.to(device)
     adj_out = adj_out.to(device)
+    print(f'Loaded/Built transition adj in {time.time() - t1:.2f}s')
     model = DKT(C.HIDDEN, C.LAYERS, G, adj_out, adj_in).to(device)
 
     optimizer = optima.Adam(model.parameters(), lr=C.LR)
