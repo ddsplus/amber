@@ -9,17 +9,18 @@ class DKT(nn.Module):
     def __init__(self, hidden_dim, layer_dim, G, adj_in, adj_out):
         super(DKT, self).__init__()
         emb_dim = C.EMB
-        emb = nn.Embedding(2 * C.NUM_OF_QUESTIONS, emb_dim)
-        self.ques = emb(torch.LongTensor([i for i in range(2 * C.NUM_OF_QUESTIONS)])).cuda()
+        self.emb = nn.Embedding(2 * C.NUM_OF_QUESTIONS, emb_dim)
+        self.register_buffer("ques_idx", torch.arange(2 * C.NUM_OF_QUESTIONS, dtype=torch.long))
 
         self.skill_graph = SkillGraphModule(emb_dim, hidden_dim, layer_dim, G)
         self.transition_graph = TransitionGraphModule(emb_dim, hidden_dim, layer_dim, adj_out, adj_in)
         self.kd_module = KDModule(hidden_dim)
 
     def forward(self, x):
-        logit_c, out_h = self.skill_graph(self.ques, x)
+        ques = self.emb(self.ques_idx)
+        logit_c, out_h = self.skill_graph(ques, x)
 
-        logit_t, out_d = self.transition_graph(self.ques, x)
+        logit_t, out_d = self.transition_graph(ques, x)
 
         ensemble_logit = self.kd_module(out_h, out_d)
 
