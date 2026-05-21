@@ -102,14 +102,17 @@ def write_h_matrix(h_csv: Path, users: Dict[str, List[Event]], min_seq: int = 3)
     all_items = sorted({item for _, seq in kept for item, _, _ in seq})
     qmap = {q: i for i, q in enumerate(all_items)}
 
-    H = np.zeros((len(all_items), len(kept)), dtype=np.int64)
+    # Modelnew.py uses embeddings/features of size 2 * NUM_OF_QUESTIONS.
+    # Keep H aligned to that space: first Q rows for correct branch, next Q rows for incorrect branch.
+    H = np.zeros((2 * len(all_items), len(kept)), dtype=np.int64)
     for uidx, (_, seq) in enumerate(kept):
         seen = set()
-        for item, _, _ in seq:
+        for item, corr, _ in seq:
             qidx = qmap[item]
-            if qidx not in seen:
-                H[qidx, uidx] = 1
-                seen.add(qidx)
+            row = qidx if corr > 0 else (len(all_items) + qidx)
+            if row not in seen:
+                H[row, uidx] = 1
+                seen.add(row)
 
     h_csv.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(H).to_csv(h_csv, index=False, header=False)
@@ -215,7 +218,7 @@ def process_one(dataset: str, users: Dict[str, List[Event]], dataset_dir: Path, 
     out_train = dataset_dir / dataset / f"{dataset}_pid_train.csv"
     num_q, num_u = write_pid_train(out_train, users, min_seq=min_seq)
     write_h_matrix(h_dir / f"{h_tag}.csv", users, min_seq=min_seq)
-    print(f"[{dataset}] done: questions={num_q}, users={num_u}, pid_train={out_train}")
+    print(f"[{dataset}] done: questions={num_q}, users={num_u}, pid_train={out_train}, H_shape={(2 * num_q, num_u)}")
 
 
 def main() -> None:
