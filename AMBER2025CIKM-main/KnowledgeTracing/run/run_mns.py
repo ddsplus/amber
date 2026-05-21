@@ -30,6 +30,49 @@ if torch.cuda.is_available():
     torch.cuda.set_device(0)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+def _detect_max_qid(pid_train_path: Path) -> int:
+    max_qid = 0
+    with pid_train_path.open('r', encoding='UTF-8-sig') as f:
+        while True:
+            len_line = f.readline()
+            if not len_line:
+                break
+            qline = f.readline().strip().strip(',')
+            _ = f.readline()
+            _ = f.readline()
+            if not qline:
+                continue
+            vals = [int(x) for x in qline.split(',') if x]
+            if vals:
+                max_qid = max(max_qid, max(vals))
+    return max_qid
+
+
+def _sync_runtime_constants_with_data():
+    pid_path = Path(f'../../Dataset/{C.DATASET}/{C.DATASET}_pid_train.csv')
+    if not pid_path.exists():
+        print(f'[WARN] Missing pid_train file for dataset sync: {pid_path}')
+        return
+
+    detected_q = _detect_max_qid(pid_path)
+    if detected_q <= 0:
+        print(f'[WARN] Could not detect valid question id from: {pid_path}')
+        return
+
+    if detected_q != C.NUM_OF_QUESTIONS:
+        print(f'[WARN] NUM_OF_QUESTIONS mismatch: Constants={C.NUM_OF_QUESTIONS}, data max_qid={detected_q}')
+        print('       Auto-syncing runtime NUM_OF_QUESTIONS to data max_qid for this run.')
+        C.NUM_OF_QUESTIONS = detected_q
+
+    if C.H != C.DATASET:
+        print(f'[INFO] Runtime H tag adjusted: {C.H} -> {C.DATASET}')
+        C.H = C.DATASET
+
+
+_sync_runtime_constants_with_data()
+
 print('GPU state: ', torch.cuda.is_available())
 print('Dataset: ' + C.DATASET + ', Ques number: ' + str(C.NUM_OF_QUESTIONS) + '\n')
 
@@ -65,11 +108,14 @@ n = 3
 
 
 def KTtrain():
-    g_cache = f'../../Dataset/{C.DATASET}/G_{C.H}_q{C.NUM_OF_QUESTIONS}.pt'
+    g_cache = f'../../Dataset/{C.DATASET}/G_{C.DATASET}_q{C.NUM_OF_QUESTIONS}.pt'
     if os.path.exists(g_cache):
         G = torch.load(g_cache, map_location='cpu').coalesce().to(device)
     else:
-        adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
+        h_file = Path(f'../../Dataset/H/{C.DATASET}.csv')
+        if not h_file.exists():
+            h_file = Path(f'../../Dataset/H/{C.H}.csv')
+        adj = hgut.generate_G_from_H(pd.read_csv(h_file, header=None))
         G = adj.coalesce().to(device)
         os.makedirs(f'../../Dataset/{C.DATASET}', exist_ok=True)
         torch.save(adj.coalesce().cpu(), g_cache)
@@ -80,8 +126,18 @@ def KTtrain():
     student_model = DKT(C.HIDDEN, C.LAYERS, G, adj_out, adj_in).to(device)
     teacher_model = DKT(C.HIDDEN, C.LAYERS, G, adj_out, adj_in).to(device)
 
-    teacher_path = '../model/save' + C.H + 'modelS_weights_teacher.pth'
-    teacher_model.load_state_dict(torch.load(teacher_path, map_location=device))
+    teacher_candidates = [
+        Path(f'../model/save{C.DATASET}modelS_weights_teacher.pth'),
+        Path(f'../model/save{C.H}modelS_weights_teacher.pth'),
+    ]
+    teacher_path = next((p for p in teacher_candidates if p.exists()), None)
+    if teacher_path is None:
+        checked = ', '.join(str(p) for p in teacher_candidates)
+        raise FileNotFoundError(
+            f'No teacher checkpoint found. Checked: {checked}. '
+            f'Please run run_tkt.py first for DATASET={C.DATASET}.'
+        )
+    teacher_model.load_state_dict(torch.load(str(teacher_path), map_location=device))
 
     comblossd = CombinedLossID(device=device)
     comblossc = CombinedLossI(device=device)
@@ -234,11 +290,14 @@ def KTtrain():
 
 
 def KTtest():
-    g_cache = f'../../Dataset/{C.DATASET}/G_{C.H}_q{C.NUM_OF_QUESTIONS}.pt'
+    g_cache = f'../../Dataset/{C.DATASET}/G_{C.DATASET}_q{C.NUM_OF_QUESTIONS}.pt'
     if os.path.exists(g_cache):
         G = torch.load(g_cache, map_location='cpu').coalesce().to(device)
     else:
-        adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
+        h_file = Path(f'../../Dataset/H/{C.DATASET}.csv')
+        if not h_file.exists():
+            h_file = Path(f'../../Dataset/H/{C.H}.csv')
+        adj = hgut.generate_G_from_H(pd.read_csv(h_file, header=None))
         G = adj.coalesce().to(device)
         os.makedirs(f'../../Dataset/{C.DATASET}', exist_ok=True)
         torch.save(adj.coalesce().cpu(), g_cache)
