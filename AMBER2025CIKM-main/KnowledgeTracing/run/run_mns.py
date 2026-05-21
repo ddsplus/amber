@@ -73,6 +73,26 @@ def _sync_runtime_constants_with_data():
 
 _sync_runtime_constants_with_data()
 
+
+def _qa_to_onehot(batch_ques, batch_ans, q, device):
+    bsz, step = batch_ques.shape
+    x = torch.zeros(bsz, step, 2 * q, device=device, dtype=torch.float32)
+    valid = (batch_ques > 0) & (batch_ques <= q) & ((batch_ans == 0) | (batch_ans == 1))
+    idx_q = (batch_ques - 1).clamp_min(0)
+    idx_neg = idx_q + q
+
+    pos_mask = valid & (batch_ans > 0)
+    neg_mask = valid & (batch_ans == 0)
+
+    if pos_mask.any():
+        bi, ti = pos_mask.nonzero(as_tuple=True)
+        x[bi, ti, idx_q[bi, ti]] = 1.0
+    if neg_mask.any():
+        bi, ti = neg_mask.nonzero(as_tuple=True)
+        x[bi, ti, idx_neg[bi, ti]] = 1.0
+    return x
+
+
 print('GPU state: ', torch.cuda.is_available())
 print('Dataset: ' + C.DATASET + ', Ques number: ' + str(C.NUM_OF_QUESTIONS) + '\n')
 
@@ -162,6 +182,11 @@ def KTtrain():
 
         train_progress = tqdm(trainLoader, desc=f"Training Epoch {epoch + 1}/{C.EPOCH}", leave=False)
         for d_step, d_batch in enumerate(train_progress):
+            batch_ques, batch_ans = d_batch
+            batch_ques = batch_ques.cuda(non_blocking=True)
+            batch_ans = batch_ans.cuda(non_blocking=True)
+            d_batch = _qa_to_onehot(batch_ques, batch_ans, C.NUM_OF_QUESTIONS, batch_ques.device)
+
             if not skip_steps:
                 batches_buffer.append((d_step, d_batch))
 

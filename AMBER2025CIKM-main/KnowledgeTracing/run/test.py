@@ -3,6 +3,25 @@ import tqdm
 from sklearn import metrics
 from KnowledgeTracing.Constant import Constants as C
 
+def _qa_to_onehot(batch_ques, batch_ans, q, device):
+    bsz, step = batch_ques.shape
+    x = torch.zeros(bsz, step, 2 * q, device=device, dtype=torch.float32)
+    valid = (batch_ques > 0) & (batch_ques <= q) & ((batch_ans == 0) | (batch_ans == 1))
+    idx_q = (batch_ques - 1).clamp_min(0)
+    idx_neg = idx_q + q
+
+    pos_mask = valid & (batch_ans > 0)
+    neg_mask = valid & (batch_ans == 0)
+
+    if pos_mask.any():
+        bi, ti = pos_mask.nonzero(as_tuple=True)
+        x[bi, ti, idx_q[bi, ti]] = 1.0
+    if neg_mask.any():
+        bi, ti = neg_mask.nonzero(as_tuple=True)
+        x[bi, ti, idx_neg[bi, ti]] = 1.0
+    return x
+
+
 def test_epoch(model, testLoader, device):
     model.eval()
 
@@ -12,6 +31,11 @@ def test_epoch(model, testLoader, device):
 
     with torch.no_grad():
         for batch in tqdm.tqdm(testLoader, desc='Testing:     ', mininterval=2):
+            if isinstance(batch, (list, tuple)) and len(batch) == 2:
+                batch_ques, batch_ans = batch
+                batch_ques = batch_ques.cuda(non_blocking=True)
+                batch_ans = batch_ans.cuda(non_blocking=True)
+                batch = _qa_to_onehot(batch_ques, batch_ans, C.NUM_OF_QUESTIONS, batch_ques.device)
             logit_c, logit_t, ensemble_logit,_ ,_ = model(batch)
 
 
