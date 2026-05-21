@@ -119,7 +119,7 @@ def _read_csv_with_fallback(path: Path, encodings: Sequence[str]) -> pd.DataFram
     last_err = None
     for enc in encodings:
         try:
-            return pd.read_csv(path, encoding=enc)
+            return pd.read_csv(path, encoding=enc, low_memory=False)
         except UnicodeDecodeError as e:
             last_err = e
     if last_err is not None:
@@ -132,10 +132,10 @@ def load_assist(path: Path) -> Dict[str, List[Event]]:
     df = _read_csv_with_fallback(path, encodings=("utf-8-sig", "utf-8", "latin1"))
     cols = list(df.columns)
 
-    user_col = detect_col(cols, ["user_id", "uid", "user", "anon_id", "Anon Student Id"])
-    item_col = detect_col(cols, ["problem_id", "problem", "item_id", "skill_id", "Problem Name"])
+    user_col = detect_col(cols, ["user_id", "uid", "user", "anon_id", "Anon Student Id", "studentId"])
+    item_col = detect_col(cols, ["problem_id", "problemId", "problem", "item_id", "skill_id", "Problem Name"])
     correct_col = detect_col(cols, ["correct", "Correct", "is_correct", "Outcome"])
-    time_col = detect_col(cols, ["order_id", "timestamp", "start_time", "Time"])
+    time_col = detect_col(cols, ["order_id", "timestamp", "start_time", "startTime", "Time"])
 
     if user_col is None or item_col is None or correct_col is None:
         raise ValueError(f"Cannot detect required columns in {path}. columns={cols}")
