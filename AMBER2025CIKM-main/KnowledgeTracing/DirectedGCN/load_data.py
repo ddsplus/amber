@@ -7,19 +7,44 @@ import torch
 import os
 
 
+def _detect_max_qid(path):
+    max_qid = 0
+    with open(path, 'r', encoding='UTF-8-sig') as train:
+        for _, ques, _, _ in tqdm.tqdm(itertools.zip_longest(*[train] * 4), desc='Scan max qid:            ',
+                                       mininterval=2):
+            if ques is None:
+                break
+            q_vals = np.array(ques.strip().strip(',').split(',')).astype(int)
+            if q_vals.size > 0:
+                cur_max = int(q_vals.max())
+                if cur_max > max_qid:
+                    max_qid = cur_max
+    return max_qid
+
+
 def get_adj():
-    cache_path = '../../Dataset/' + C.DATASET + '/adj_' + C.DATASET + '_q' + str(C.NUM_OF_QUESTIONS) + '.pt'
+    path = '../../Dataset/' + C.DATASET + '/' + C.DATASET + '_pid_train.csv'
+    detected_q = _detect_max_qid(path)
+    q = max(C.NUM_OF_QUESTIONS, detected_q)
+    if q != C.NUM_OF_QUESTIONS:
+        print(f'[WARN] get_adj detected larger qid: constants={C.NUM_OF_QUESTIONS}, data={detected_q}.')
+        print(f'       Runtime q is expanded to {q} for adjacency building.')
+        C.NUM_OF_QUESTIONS = q
+
+    cache_path = '../../Dataset/' + C.DATASET + '/adj_' + C.DATASET + '_q' + str(q) + '.pt'
     if os.path.exists(cache_path):
         cached = torch.load(cache_path, map_location='cpu')
         return cached['adj_out'].coalesce(), cached['adj_in'].coalesce()
 
-    q = C.NUM_OF_QUESTIONS
-    resout = np.zeros((2 * q, 2 * q), dtype=np.float32)
-    path = '../../Dataset/' + C.DATASET + '/' + C.DATASET + '_pid_train.csv'
+    src_all = []
+    dst_all = []
+    total_nodes = 2 * q
 
     with open(path, 'r', encoding='UTF-8-sig') as train:
         for len, ques, _, ans in tqdm.tqdm(itertools.zip_longest(*[train] * 4), desc='Generate adjacency matrix:    ',
                                            mininterval=2):
+            if len is None or ques is None or ans is None:
+                break
             len = int(len.strip().strip(','))
             ques = np.array(ques.strip().strip(',').split(',')).astype(int)
             ans = np.array(ans.strip().strip(',').split(',')).astype(int)
@@ -29,10 +54,23 @@ def get_adj():
                 seq[:len][wrong_mask] += q
                 src = seq[:len - 1] - 1
                 dst = seq[1:len] - 1
-                np.add.at(resout, (src, dst), 1.0)
-    resin = resout.T
-    resout = normalize(resout + sp.eye(resout.shape[0]))
-    resin = normalize(resin + sp.eye(resin.shape[0]))
+                valid = (src >= 0) & (src < total_nodes) & (dst >= 0) & (dst < total_nodes)
+                if np.any(valid):
+                    src_all.append(src[valid])
+                    dst_all.append(dst[valid])
+
+    if src_all:
+        src_cat = np.concatenate(src_all, axis=0)
+        dst_cat = np.concatenate(dst_all, axis=0)
+        data = np.ones_like(src_cat, dtype=np.float32)
+        resout = sp.coo_matrix((data, (src_cat, dst_cat)), shape=(total_nodes, total_nodes), dtype=np.float32).tocsr()
+        resout.sum_duplicates()
+    else:
+        resout = sp.csr_matrix((total_nodes, total_nodes), dtype=np.float32)
+
+    resin = resout.transpose().tocsr()
+    resout = normalize(resout + sp.eye(resout.shape[0], format='csr', dtype=np.float32))
+    resin = normalize(resin + sp.eye(resin.shape[0], format='csr', dtype=np.float32))
 
     resout = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(resout))
     resin = sparse_mx_to_torch_sparse_tensor(sp.coo_matrix(resin))

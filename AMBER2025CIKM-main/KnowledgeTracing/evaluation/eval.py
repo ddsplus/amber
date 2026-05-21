@@ -10,7 +10,7 @@ logger = logging.getLogger('main.eval')
 def _qa_to_onehot(batch_ques, batch_ans, q, device):
     bsz, step = batch_ques.shape
     x = torch.zeros(bsz, step, 2 * q, device=device, dtype=torch.float32)
-    valid = batch_ques > 0
+    valid = (batch_ques > 0) & (batch_ques <= q) & ((batch_ans == 0) | (batch_ans == 1))
     idx_q = (batch_ques - 1).clamp_min(0)
     idx_neg = idx_q + q
 

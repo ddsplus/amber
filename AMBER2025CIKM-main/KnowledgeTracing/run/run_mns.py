@@ -65,10 +65,14 @@ n = 3
 
 
 def KTtrain():
-    torch.autograd.set_detect_anomaly(True)
-
-    adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
-    G = adj.to(device)
+    g_cache = f'../../Dataset/{C.DATASET}/G_{C.H}_q{C.NUM_OF_QUESTIONS}.pt'
+    if os.path.exists(g_cache):
+        G = torch.load(g_cache, map_location='cpu').coalesce().to(device)
+    else:
+        adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
+        G = adj.coalesce().to(device)
+        os.makedirs(f'../../Dataset/{C.DATASET}', exist_ok=True)
+        torch.save(adj.coalesce().cpu(), g_cache)
     adj_out, adj_in = get_adj()
     adj_in = adj_in.to(device)
     adj_out = adj_out.to(device)
@@ -230,8 +234,14 @@ def KTtrain():
 
 
 def KTtest():
-    adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
-    G = adj.to(device)
+    g_cache = f'../../Dataset/{C.DATASET}/G_{C.H}_q{C.NUM_OF_QUESTIONS}.pt'
+    if os.path.exists(g_cache):
+        G = torch.load(g_cache, map_location='cpu').coalesce().to(device)
+    else:
+        adj = hgut.generate_G_from_H(pd.read_csv(r'../../Dataset/H/' + C.H + '.csv', header=None))
+        G = adj.coalesce().to(device)
+        os.makedirs(f'../../Dataset/{C.DATASET}', exist_ok=True)
+        torch.save(adj.coalesce().cpu(), g_cache)
     adj_out, adj_in = get_adj()
     adj_in = adj_in.to(device)
     adj_out = adj_out.to(device)
