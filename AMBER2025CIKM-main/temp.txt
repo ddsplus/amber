@@ -1,0 +1,111 @@
+﻿AMBER 各数据集训练方法（基于当前代码）
+
+一、通用流程
+1) 先做数据预处理（你已经完成）
+   产物应包括：
+   - Dataset/<dataset>/<dataset>_pid_train.csv
+   - Dataset/H/<H>.csv
+
+2) 修改配置文件
+   文件：KnowledgeTracing/Constant/Constants.py
+   关键项：
+   - DATASET = datasets['xxx']
+   - NUM_OF_QUESTIONS = numbers['xxx']
+   - H = 'xxxx'
+
+3) 先训练 teacher
+   命令：python -m KnowledgeTracing.run.run_tkt
+
+4) 再训练 AMBER(student)
+   命令：python -m KnowledgeTracing.run.run_mns
+
+5) 训练过程中会输出测试集 AUC/ACC
+
+
+二、各数据集配置与命令
+
+A. ASSIST2009
+1) Constants.py 设置
+   - DATASET = datasets['assist2009']
+   - NUM_OF_QUESTIONS = numbers['assist2009']
+   - H = '2009'
+
+2) 训练
+   - python -m KnowledgeTracing.run.run_tkt
+   - python -m KnowledgeTracing.run.run_mns
+
+
+B. ASSIST2017
+1) Constants.py 设置
+   - DATASET = datasets['assist2017']
+   - NUM_OF_QUESTIONS = numbers['assist2017']
+   - H = '2017'
+
+2) 训练
+   - python -m KnowledgeTracing.run.run_tkt
+   - python -m KnowledgeTracing.run.run_mns
+
+
+C. Statics2011（若要训练需先在 Constants.py 注册）
+当前 Constants.py 默认没有 statics2011，需要先新增：
+1) 在 datasets 字典加：
+   'statics2011': 'statics2011'
+
+2) 在 numbers 字典加：
+   'statics2011': <你的题目总数>
+   题目总数建议取 Dataset/statics2011/statics2011_pid_train.csv 里去重后的题目数。
+
+3) 设置：
+   - DATASET = datasets['statics2011']
+   - NUM_OF_QUESTIONS = numbers['statics2011']
+   - H = '2011'
+
+4) 训练
+   - python -m KnowledgeTracing.run.run_tkt
+   - python -m KnowledgeTracing.run.run_mns
+
+
+D. XES3G5M（若要训练需先在 Constants.py 注册）
+当前 Constants.py 默认没有 xes3g5m，需要先新增：
+1) 在 datasets 字典加：
+   'xes3g5m': 'xes3g5m'
+
+2) 在 numbers 字典加：
+   'xes3g5m': <你的题目总数>
+
+3) 设置：
+   - DATASET = datasets['xes3g5m']
+   - NUM_OF_QUESTIONS = numbers['xes3g5m']
+   - H = 'xes3g5m'
+
+4) 训练
+   - python -m KnowledgeTracing.run.run_tkt
+   - python -m KnowledgeTracing.run.run_mns
+
+
+三、建议启动目录
+在项目根目录执行（推荐）：
+- python -m KnowledgeTracing.run.run_tkt
+- python -m KnowledgeTracing.run.run_mns
+
+
+四、结果文件
+1) teacher 权重：
+   KnowledgeTracing/model/save<H>modelS_weights_teacher.pth
+
+2) student 权重：
+   KnowledgeTracing/model/save<H>modelS_weights.pth
+
+3) 日志：
+   KnowledgeTracing/run/log/
+
+
+五、常见问题
+1) ModuleNotFoundError: No module named KnowledgeTracing
+   - 请在项目根目录用 -m 方式启动。
+
+2) run_mns.py 报 teacher 权重不存在
+   - 先成功跑 run_tkt.py 再跑 run_mns.py。
+
+3) 维度/索引越界
+   - 检查 NUM_OF_QUESTIONS 是否与该数据集真实题目数一致。
