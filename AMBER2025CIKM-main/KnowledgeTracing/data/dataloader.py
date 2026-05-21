@@ -1,12 +1,13 @@
 ﻿import sys
 import os
 import random
+import multiprocessing
 
 sys.path.append('../')
 import torch.utils.data as Data
 from KnowledgeTracing.Constant import Constants as C
 from KnowledgeTracing.data.preprocess import DataReader
-from KnowledgeTracing.data.OneHot import OneHot,OneHotM
+from KnowledgeTracing.data.OneHot import OneHot, OneHotM
 
 
 def _split_by_user_8_2(source_path, train_out, test_out, seed=216, train_ratio=0.8):
@@ -52,16 +53,41 @@ def _resolve_dataset_paths(dataset):
     return split_train, split_test
 
 
+def _effective_batch_size():
+    effective_bs = C.BATCH_SIZE
+    if C.NUM_OF_QUESTIONS >= 7000:
+        effective_bs = min(effective_bs, 16)
+    elif C.NUM_OF_QUESTIONS >= 3000:
+        effective_bs = min(effective_bs, 32)
+    else:
+        effective_bs = min(effective_bs, 64)
+    return effective_bs
+
+
+def _loader_workers():
+    env_workers = os.environ.get('KT_NUM_WORKERS')
+    if env_workers is not None:
+        try:
+            return max(0, int(env_workers))
+        except ValueError:
+            pass
+    # OneHot is now prebuilt in memory; single-process loading avoids CPU oversubscription.
+    return 0
+
+
 def getTrainLoader(train_data_path):
     handle = DataReader(train_data_path, C.MAX_STEP)
     trainques, trainans = handle.getTrainData()
     dtrain = OneHot(trainques, trainans)
+
     trainLoader = Data.DataLoader(
         dtrain,
-        batch_size=C.BATCH_SIZE,
+        batch_size=_effective_batch_size(),
         shuffle=True,
         drop_last=True,
-        pin_memory=True
+        pin_memory=True,
+        num_workers=_loader_workers(),
+        persistent_workers=False
     )
     return trainLoader
 
@@ -70,12 +96,15 @@ def getTestLoader(test_data_path):
     handle = DataReader(test_data_path, C.MAX_STEP)
     testques, testans = handle.getTestData()
     dtest = OneHot(testques, testans)
+
     testLoader = Data.DataLoader(
         dtest,
-        batch_size=C.BATCH_SIZE,
+        batch_size=_effective_batch_size(),
         shuffle=False,
         drop_last=True,
-        pin_memory=True
+        pin_memory=True,
+        num_workers=_loader_workers(),
+        persistent_workers=False
     )
     return testLoader
 

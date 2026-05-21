@@ -26,6 +26,15 @@ warnings.filterwarnings('ignore')
 if torch.cuda.is_available():
     torch.cuda.set_device(0)
 
+# Limit CPU thread contention to avoid full-core saturation.
+try:
+    _threads = int(os.environ.get('KT_TORCH_THREADS', '1'))
+    _interop = int(os.environ.get('KT_TORCH_INTEROP_THREADS', '1'))
+    torch.set_num_threads(max(1, _threads))
+    torch.set_num_interop_threads(max(1, _interop))
+except Exception:
+    pass
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('GPU state: ', torch.cuda.is_available())
 print('Dataset: ' + C.DATASET + ', Ques number: ' + str(C.NUM_OF_QUESTIONS) + '\n')
@@ -57,6 +66,7 @@ def set_seed(seed):
 set_seed(216)
 
 trainLoader, testLoader = getLoader(C.DATASET)
+print(f'Effective batch-size is controlled in dataloader for stability; configured BATCH_SIZE={C.BATCH_SIZE}')
 loss_func = eval.lossFunc(C.HIDDEN, C.MAX_STEP, device)
 
 
