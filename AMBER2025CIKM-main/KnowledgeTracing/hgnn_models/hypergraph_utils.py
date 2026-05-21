@@ -15,11 +15,14 @@ def generate_G_from_H(H, variable_weight=False):
     # the weight of the hyperedge
     W = np.ones(n_edge)
     # the degree of the node
-    DV = np.sum(H *W, axis=1)
+    DV = np.sum(H * W, axis=1)
     # the degree of the hyperedge
     DE = np.sum(H, axis=0)
-    invDE = np.mat(np.diag(np.power(DE, float(-1))))
-    DV2 = np.mat(np.diag(np.power(DV, -0.5)))
+    # Guard zero-degree nodes/edges to avoid inf -> NaN propagation.
+    inv_de = np.power(DE, -1.0, where=(DE != 0), out=np.zeros_like(DE, dtype=float))
+    inv_dv2 = np.power(DV, -0.5, where=(DV != 0), out=np.zeros_like(DV, dtype=float))
+    invDE = np.mat(np.diag(inv_de))
+    DV2 = np.mat(np.diag(inv_dv2))
     W = np.mat(np.diag(W))
     H = np.mat(H)
     HT = H.T

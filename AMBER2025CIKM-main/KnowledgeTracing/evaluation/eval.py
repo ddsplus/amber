@@ -31,14 +31,14 @@ class lossFunc(nn.Module):
 
     def forward(self, logit_c, logit_t, logit_ensemble, batch):
 
-        p_c = self.sig(logit_c)
-        p_t = self.sig(logit_t)
-        p_enm = self.sig(logit_ensemble)
+        p_c = torch.nan_to_num(self.sig(logit_c), nan=0.5, posinf=1.0, neginf=0.0).clamp(1e-6, 1 - 1e-6)
+        p_t = torch.nan_to_num(self.sig(logit_t), nan=0.5, posinf=1.0, neginf=0.0).clamp(1e-6, 1 - 1e-6)
+        p_enm = torch.nan_to_num(self.sig(logit_ensemble), nan=0.5, posinf=1.0, neginf=0.0).clamp(1e-6, 1 - 1e-6)
         '''kd_loss'''
         T = 0.5
-        p0_c = self.sig(logit_c/T)
-        p0_t = self.sig(logit_t/T)
-        p0_enm = self.sig(logit_ensemble/T)
+        p0_c = torch.nan_to_num(self.sig(logit_c / T), nan=0.5, posinf=1.0, neginf=0.0).clamp(1e-6, 1 - 1e-6)
+        p0_t = torch.nan_to_num(self.sig(logit_t / T), nan=0.5, posinf=1.0, neginf=0.0).clamp(1e-6, 1 - 1e-6)
+        p0_enm = torch.nan_to_num(self.sig(logit_ensemble / T), nan=0.5, posinf=1.0, neginf=0.0).clamp(1e-6, 1 - 1e-6)
         loss_kd = C.kd_loss * (torch.sum(torch.abs(p0_enm-p0_c)) + torch.sum(torch.abs(p0_enm-p0_t)))
         loss = torch.Tensor([0.0]).cuda()
         prediction = torch.tensor([], device=self.device)
