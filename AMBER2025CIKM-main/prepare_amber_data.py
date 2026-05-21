@@ -115,8 +115,21 @@ def write_h_matrix(h_csv: Path, users: Dict[str, List[Event]], min_seq: int = 3)
     pd.DataFrame(H).to_csv(h_csv, index=False, header=False)
 
 
+def _read_csv_with_fallback(path: Path, encodings: Sequence[str]) -> pd.DataFrame:
+    last_err = None
+    for enc in encodings:
+        try:
+            return pd.read_csv(path, encoding=enc)
+        except UnicodeDecodeError as e:
+            last_err = e
+    if last_err is not None:
+        raise last_err
+    return pd.read_csv(path)
+
+
 def load_assist(path: Path) -> Dict[str, List[Event]]:
-    df = pd.read_csv(path)
+    # ASSIST2009 is often latin1; keep fallback for robustness.
+    df = _read_csv_with_fallback(path, encodings=("utf-8-sig", "utf-8", "latin1"))
     cols = list(df.columns)
 
     user_col = detect_col(cols, ["user_id", "uid", "user", "anon_id", "Anon Student Id"])
